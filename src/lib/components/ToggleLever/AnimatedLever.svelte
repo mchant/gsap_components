@@ -3,8 +3,15 @@
 	import { gsap } from 'gsap';
 
 	export let isOpen: boolean = true;
+	export let powerState: 1 | 2 | 3 = 1; // 1 = standby, 2 = charging, 3 = discharging
+	export let speed: number = 100; // 0-100
 
 	let middleSegmentRef: SVGLineElement;
+	let dotRefs: SVGCircleElement[] = [];
+	let chargingAnimations: gsap.core.Tween[] = [];
+	let dischargingAnimations: gsap.core.Tween[] = [];
+
+	const numDots = 6;
 
 	onMount(() => {
 		// Set initial state - open is upward (-45 degrees)
@@ -13,7 +20,52 @@
 		} else {
 			gsap.set(middleSegmentRef, { rotation: 0, transformOrigin: 'left center' });
 		}
+
+		// Setup dot animations
+		setupDotAnimations();
 	});
+
+	function setupDotAnimations() {
+		// Total length of the lever segments: 40 (first) + 40 (middle) + 40 (third) = 120
+		const totalLength = 120;
+
+		dotRefs.forEach((dot, index) => {
+			const offset = index / numDots;
+
+			// Set initial position for charging (left to right)
+			const startX = offset * totalLength + 10;
+			gsap.set(dot, { attr: { cx: startX, cy: 50 } });
+
+			// Create charging animation (left to right)
+			const chargingTween = gsap.to(dot, {
+				duration: 3,
+				repeat: -1,
+				ease: 'none',
+				paused: true,
+				onUpdate: function() {
+					const progress = (this.progress() + offset) % 1;
+					const x = progress * totalLength + 10;
+					gsap.set(dot, { attr: { cx: x } });
+				}
+			});
+			chargingAnimations.push(chargingTween);
+
+			// Create discharging animation (right to left)
+			const dischargingTween = gsap.to(dot, {
+				duration: 3,
+				repeat: -1,
+				ease: 'none',
+				paused: true,
+				onUpdate: function() {
+					const progress = (this.progress() + offset) % 1;
+					// Reverse direction: start from right (130) and go to left (10)
+					const x = (1 - progress) * totalLength + 10;
+					gsap.set(dot, { attr: { cx: x } });
+				}
+			});
+			dischargingAnimations.push(dischargingTween);
+		});
+	}
 
 	$: {
 		if (middleSegmentRef) {
@@ -34,6 +86,43 @@
 					ease: 'power2.inOut'
 				});
 			}
+		}
+	}
+
+	$: {
+		if (chargingAnimations.length > 0 && dischargingAnimations.length > 0) {
+			if (!isOpen) {
+				// Only animate when lever is closed
+				if (powerState === 1) {
+					// StandBy: dots invisible
+					chargingAnimations.forEach(anim => anim.pause());
+					dischargingAnimations.forEach(anim => anim.pause());
+					dotRefs.forEach(dot => gsap.set(dot, { opacity: 0 }));
+				} else if (powerState === 2) {
+					// Charging: left to right, dots visible
+					dischargingAnimations.forEach(anim => anim.pause());
+					chargingAnimations.forEach(anim => anim.play());
+					dotRefs.forEach(dot => gsap.set(dot, { opacity: 0.8 }));
+				} else if (powerState === 3) {
+					// Discharging: right to left, dots visible
+					chargingAnimations.forEach(anim => anim.pause());
+					dischargingAnimations.forEach(anim => anim.play());
+					dotRefs.forEach(dot => gsap.set(dot, { opacity: 0.8 }));
+				}
+			} else {
+				// Pause all animations when lever is open, hide dots
+				chargingAnimations.forEach(anim => anim.pause());
+				dischargingAnimations.forEach(anim => anim.pause());
+				dotRefs.forEach(dot => gsap.set(dot, { opacity: 0 }));
+			}
+		}
+	}
+
+	$: {
+		if (chargingAnimations.length > 0 && dischargingAnimations.length > 0) {
+			const timeScale = speed / 100;
+			chargingAnimations.forEach(anim => anim.timeScale(timeScale));
+			dischargingAnimations.forEach(anim => anim.timeScale(timeScale));
 		}
 	}
 </script>
@@ -90,6 +179,11 @@
 			<!-- Joint circles -->
 			<circle cx="50" cy="50" r="8" fill="#64748b" />
 			<circle cx="90" cy="50" r="8" fill="#64748b" />
+
+			<!-- Animated dots -->
+			{#each Array(numDots) as _, i}
+				<circle bind:this={dotRefs[i]} cx="10" cy="50" r="4" fill="#f59e0b" opacity="0.8" />
+			{/each}
 		</svg>
 	</div>
 

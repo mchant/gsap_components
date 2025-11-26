@@ -3,6 +3,8 @@
 	import { gsap } from 'gsap';
 
 	export let isOn: boolean = false;
+	export let offLabel: string = 'OFF';
+	export let onLabel: string = 'ON';
 
 	const dispatch = createEventDispatcher<{ change: boolean }>();
 
@@ -35,10 +37,10 @@
 		class="absolute top-1/2 -translate-y-1/2 left-2 text-xs font-bold z-[1] select-none transition-colors"
 		class:text-slate-500={!isOn}
 		class:text-slate-400={isOn}
-	>OFF</span>
+	>{offLabel}</span>
 	<span
 		class="absolute top-1/2 -translate-y-1/2 right-2 text-xs font-bold z-[1] select-none transition-colors"
 		class:text-blue-800={!isOn}
 		class:text-blue-900={isOn}
-	>ON</span>
+	>{onLabel}</span>
 </button>
